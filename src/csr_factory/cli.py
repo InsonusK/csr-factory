@@ -44,7 +44,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument(
         "--tmp-key-dir",
-        default="pki/tmp",
+        default="tmp",
         help="Directory for temporary private key files (default: %(default)s).",
     )
     parser.add_argument(
