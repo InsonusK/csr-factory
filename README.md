@@ -78,6 +78,9 @@ create-csr /path/to/servers
 
 # Customize the temporary private key path
 create-csr /path/to/servers --tmp-key /secure/place/private.key
+
+# Enable debug logging
+create-csr /path/to/servers -v
 ```
 
 The tool will:

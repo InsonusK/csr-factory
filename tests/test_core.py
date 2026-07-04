@@ -51,9 +51,11 @@ def servers_dir(tmp_path: Path) -> Path:
     return root
 
 
-def test_validate_algorithm_supported() -> None:
+def test_validate_algorithm_supported(caplog) -> None:
+    caplog.set_level("DEBUG")
     for algo in ALGORITHMS:
         validate_algorithm(algo)  # should not raise
+    assert any("Validating algorithm" in rec.message for rec in caplog.records)
 
 
 def test_validate_algorithm_unsupported() -> None:
@@ -61,7 +63,7 @@ def test_validate_algorithm_unsupported() -> None:
         validate_algorithm("unsupported")
 
 
-def test_load_servers_success(servers_dir: Path) -> None:
+def test_load_servers_success(servers_dir: Path, caplog) -> None:
     servers = load_servers(servers_dir)
     assert len(servers) == 2
     assert servers[0].name == "api1"
@@ -69,6 +71,7 @@ def test_load_servers_success(servers_dir: Path) -> None:
     assert servers[0].algorithm == "ECC P-256"
     assert servers[1].name == "web1"
     assert servers[1].tags == ("web",)
+    assert any("Loaded 2 server(s)" in rec.message for rec in caplog.records)
 
 
 def test_load_servers_missing_directory(tmp_path: Path) -> None:
@@ -76,7 +79,7 @@ def test_load_servers_missing_directory(tmp_path: Path) -> None:
         load_servers(tmp_path / "does-not-exist")
 
 
-def test_load_servers_missing_meta(tmp_path: Path, capsys) -> None:
+def test_load_servers_missing_meta(tmp_path: Path, caplog) -> None:
     root = tmp_path / "servers"
     s = root / "srv"
     s.mkdir(parents=True)
@@ -84,11 +87,11 @@ def test_load_servers_missing_meta(tmp_path: Path, capsys) -> None:
 
     servers = load_servers(root)
     assert servers == []
-    captured = capsys.readouterr()
-    assert "missing meta.yaml" in captured.err
+    assert any("missing meta.yaml" in rec.message for rec in caplog.records)
+    assert any(rec.levelname == "WARNING" for rec in caplog.records)
 
 
-def test_load_servers_missing_cnf(tmp_path: Path, capsys) -> None:
+def test_load_servers_missing_cnf(tmp_path: Path, caplog) -> None:
     root = tmp_path / "servers"
     s = root / "srv"
     s.mkdir(parents=True)
@@ -96,8 +99,7 @@ def test_load_servers_missing_cnf(tmp_path: Path, capsys) -> None:
 
     servers = load_servers(root)
     assert servers == []
-    captured = capsys.readouterr()
-    assert "missing server.cnf" in captured.err
+    assert any("missing server.cnf" in rec.message for rec in caplog.records)
 
 
 def test_load_servers_defaults(tmp_path: Path) -> None:
@@ -139,16 +141,17 @@ def test_collect_tags_empty() -> None:
     assert collect_tags([]) == []
 
 
-def test_select_servers_all() -> None:
+def test_select_servers_all(caplog) -> None:
     servers = [
         ServerMeta("a", ("x",), "rsa 2048", Path("/a")),
         ServerMeta("b", ("y",), "rsa 2048", Path("/b")),
     ]
     selected = select_servers(servers, "0", {"1": "x"}, {"2": "a", "3": "b"})
     assert [s.name for s in selected] == ["a", "b"]
+    assert any("Selected all servers" in rec.message for rec in caplog.records)
 
 
-def test_select_servers_by_tag() -> None:
+def test_select_servers_by_tag(caplog) -> None:
     servers = [
         ServerMeta("a", ("x",), "rsa 2048", Path("/a")),
         ServerMeta("b", ("y",), "rsa 2048", Path("/b")),
@@ -156,6 +159,7 @@ def test_select_servers_by_tag() -> None:
     ]
     selected = select_servers(servers, "2", {"1": "x", "2": "y"}, {"3": "a"})
     assert [s.name for s in selected] == ["b", "c"]
+    assert any("Selected tag: y" in rec.message for rec in caplog.records)
 
 
 def test_select_servers_by_name() -> None:
@@ -167,19 +171,22 @@ def test_select_servers_by_name() -> None:
     assert [s.name for s in selected] == ["b"]
 
 
-def test_select_servers_invalid() -> None:
+def test_select_servers_invalid(caplog) -> None:
     servers = [ServerMeta("a", ("x",), "rsa 2048", Path("/a"))]
     with pytest.raises(ValueError):
         select_servers(servers, "99", {}, {})
+    assert any("Invalid menu choice" in rec.message for rec in caplog.records)
+    assert any(rec.levelname == "ERROR" for rec in caplog.records)
 
 
 @pytest.mark.parametrize("algorithm", list(ALGORITHMS))
-def test_generate_key_real_openssl(tmp_path: Path, algorithm: str) -> None:
+def test_generate_key_real_openssl(tmp_path: Path, algorithm: str, caplog) -> None:
     key_path = tmp_path / "key.pem"
     generate_key(algorithm, key_path)
     assert key_path.exists()
     assert key_path.stat().st_mode & 0o777 == 0o600
     assert "PRIVATE KEY" in key_path.read_text(encoding="utf-8")
+    assert any("Generating private key" in rec.message for rec in caplog.records)
 
 
 def test_generate_key_invalid_algorithm(tmp_path: Path) -> None:
@@ -187,14 +194,16 @@ def test_generate_key_invalid_algorithm(tmp_path: Path) -> None:
         generate_key("bad", tmp_path / "key.pem")
 
 
-def test_generate_key_subprocess_error(tmp_path: Path) -> None:
+def test_generate_key_subprocess_error(tmp_path: Path, caplog) -> None:
     with patch("csr_factory.core.subprocess.run") as mock_run:
         mock_run.side_effect = OSError("openssl failed")
         with pytest.raises(OSError, match="openssl failed"):
             generate_key("rsa 2048", tmp_path / "key.pem")
+    assert any("Failed to run OpenSSL for key generation" in rec.message for rec in caplog.records)
+    assert any(rec.levelname == "ERROR" for rec in caplog.records)
 
 
-def test_generate_csr_real_openssl(tmp_path: Path, servers_dir: Path) -> None:
+def test_generate_csr_real_openssl(tmp_path: Path, servers_dir: Path, caplog) -> None:
     server = load_servers(servers_dir)[0]
     key_path = tmp_path / "key.pem"
     csr_path = tmp_path / "request.csr"
@@ -202,22 +211,27 @@ def test_generate_csr_real_openssl(tmp_path: Path, servers_dir: Path) -> None:
     generate_csr(key_path, server.config_path, csr_path)
     assert csr_path.exists()
     assert "CERTIFICATE REQUEST" in csr_path.read_text(encoding="utf-8")
+    assert any("Generating CSR" in rec.message for rec in caplog.records)
 
 
-def test_generate_csr_subprocess_error(tmp_path: Path, servers_dir: Path) -> None:
+def test_generate_csr_subprocess_error(tmp_path: Path, servers_dir: Path, caplog) -> None:
     server = load_servers(servers_dir)[0]
     with patch("csr_factory.core.subprocess.run") as mock_run:
         mock_run.side_effect = OSError("openssl failed")
         with pytest.raises(OSError, match="openssl failed"):
             generate_csr(tmp_path / "key.pem", server.config_path, tmp_path / "req.csr")
+    assert any("Failed to run OpenSSL for CSR generation" in rec.message for rec in caplog.records)
+    assert any(rec.levelname == "ERROR" for rec in caplog.records)
 
 
-def test_tmp_key_manager_removes_file(tmp_path: Path) -> None:
+def test_tmp_key_manager_removes_file(tmp_path: Path, caplog) -> None:
+    caplog.set_level("DEBUG")
     key = tmp_path / "private.key"
     key.write_text("secret")
     with TmpKeyManager(key):
         pass
     assert not key.exists()
+    assert any("Removing temporary key" in rec.message for rec in caplog.records)
 
 
 def test_tmp_key_manager_removes_on_exception(tmp_path: Path) -> None:

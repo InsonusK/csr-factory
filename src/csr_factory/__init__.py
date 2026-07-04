@@ -11,6 +11,7 @@ from csr_factory.core import (
     select_servers,
     validate_algorithm,
 )
+from csr_factory.logging_config import setup_logging
 
 __all__ = [
     "AlgorithmError",
@@ -21,5 +22,6 @@ __all__ = [
     "generate_key",
     "load_servers",
     "select_servers",
+    "setup_logging",
     "validate_algorithm",
 ]
