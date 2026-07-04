@@ -53,6 +53,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         action="store_true",
         help="Enable debug logging.",
     )
+    parser.add_argument(
+        "--no-cleanup",
+        action="store_true",
+        help="Do not erase temporary private key files after processing.",
+    )
     return parser.parse_args(argv)
 
 
@@ -60,6 +65,7 @@ def run(
     servers_dir: Path,
     tmp_keys_dir: Path,
     input_fn: Callable[[str], str] = input,
+    no_cleanup: bool = False,
 ) -> int:
     """Run the interactive CSR generation workflow.
 
@@ -68,6 +74,7 @@ def run(
         tmp_keys_dir: Directory where per-server temporary private keys are
             written as ``{name}.key``.
         input_fn: Callable used to read user input (for testing).
+        no_cleanup: If ``True``, temporary private key files are not erased.
 
     Returns:
         Exit code.
@@ -103,10 +110,13 @@ def run(
     try:
         for server in selected:
             key_path = tmp_keys_dir / f"{server.name}.key"
-            if not _process_server(server, key_path, input_fn):
+            if not _process_server(server, key_path, input_fn, no_cleanup=no_cleanup):
                 return 1
     finally:
-        _cleanup_key_files(tmp_keys_dir, preserve=protected_keys)
+        if no_cleanup:
+            logger.info("Skipping temporary key cleanup (--no-cleanup).")
+        else:
+            _cleanup_key_files(tmp_keys_dir, preserve=protected_keys)
 
     logger.info("Done.")
     return 0
@@ -116,8 +126,12 @@ def _process_server(
     server: ServerMeta,
     key_path: Path,
     input_fn: Callable[[str], str],
+    no_cleanup: bool = False,
 ) -> bool:
     """Process a single server: generate key, optionally generate CSR.
+
+    Args:
+        no_cleanup: If ``True``, the private key file is kept after processing.
 
     Returns:
         ``True`` if processing should continue, ``False`` on fatal error.
@@ -146,7 +160,7 @@ def _process_server(
 
         logger.info("Private key saved to: %s", key_path)
         logger.info(
-            "Private key created for %s (ONLY_KEY). The key file is kept.",
+            "Private key created for %s (only_key). The key file is kept.",
             server.name,
         )
         return True
@@ -181,10 +195,17 @@ def _process_server(
         logger.error("Failed to generate CSR for %s: %s", server.name, exc)
         return False
 
-    # Securely erase the private key immediately after the CSR is created so
-    # that the key material cannot be recovered from the storage medium.
-    secure_unlink(key_path)
-    logger.info("CSR created: %s", server.csr_path)
+    if no_cleanup:
+        logger.info(
+            "CSR created: %s. Private key kept (--no-cleanup): %s",
+            server.csr_path,
+            key_path,
+        )
+    else:
+        # Securely erase the private key immediately after the CSR is created so
+        # that the key material cannot be recovered from the storage medium.
+        secure_unlink(key_path)
+        logger.info("CSR created: %s", server.csr_path)
     return True
 
 
@@ -195,7 +216,7 @@ def _cleanup_key_files(
     """Securely erase and remove any remaining ``*.key`` files.
 
     Files listed in ``preserve`` are left untouched so that keys generated for
-    servers marked with ``ONLY_KEY`` are not erased.
+    servers marked with ``only_key`` are not erased.
     """
     preserve = preserve or set()
     if not tmp_keys_dir.exists():
@@ -219,7 +240,7 @@ def main(argv: list[str] | None = None) -> int:
     tmp_keys_dir = Path(args.tmp_key_dir)
 
     try:
-        return run(servers_dir, tmp_keys_dir)
+        return run(servers_dir, tmp_keys_dir, no_cleanup=args.no_cleanup)
     except KeyboardInterrupt:
         logger.info("Interrupted by user.")
         return 130

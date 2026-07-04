@@ -99,7 +99,7 @@ def load_servers(servers_dir: Path) -> list[ServerMeta]:
     """Load server metadata from subdirectories of ``servers_dir``.
 
     Subdirectories must contain ``meta.yaml``. ``server.cnf`` is required
-    unless ``ONLY_KEY`` is set to ``true``. Warnings are logged for directories
+    unless ``only_key`` is set to ``true``. Warnings are logged for directories
     that are missing required files or have malformed metadata.
 
     Args:
@@ -132,7 +132,7 @@ def load_servers(servers_dir: Path) -> list[ServerMeta]:
             logger.warning("%s: failed to read meta.yaml: %s", entry.name, exc)
             continue
 
-        only_key = _to_bool(meta.get("ONLY_KEY", False))
+        only_key = _to_bool(meta.get("only_key", False))
 
         if not only_key and not cnf_path.is_file():
             logger.warning("%s: missing server.cnf", entry.name)

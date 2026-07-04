@@ -15,7 +15,7 @@ This repository is both a reusable Python library and a command-line tool called
 Each subdirectory represents one server and must contain:
 
 - `meta.yaml` — server metadata
-- `server.cnf` — OpenSSL config used to generate the CSR (not required when `ONLY_KEY: true`)
+- `server.cnf` — OpenSSL config used to generate the CSR (not required when `only_key: true`)
 
 Example:
 
@@ -37,12 +37,12 @@ tags:
   - api
   - prod
 algorithm: ECC P-256  # rsa 2048 | rsa 4096 | ECC P-256 | ECC P-384
-ONLY_KEY: false       # optional: generate only a private key, no CSR
+only_key: false       # optional: generate only a private key, no CSR
 ```
 
-`ONLY_KEY` is optional and defaults to `false`. When set to `true`, the directory does
-not need a `server.cnf` and the tool only creates the private key. The key file is kept
-in `<tmp-key-dir>/<name>.key` instead of being erased after CSR generation.
+`only_key` is optional and defaults to `false`. When set to `true`, the directory does
+not need a `server.cnf` and the tool only creates the private key (no CSR is generated,
+no prompt to copy the key, and the key file is kept in `<tmp-key-dir>/<name>.key`).
 
 ECC keys are generated with `openssl genpkey -algorithm EC` and written in PKCS#8
 format (`-----BEGIN PRIVATE KEY-----`).
@@ -92,6 +92,9 @@ create-csr /path/to/servers --tmp-key-dir /secure/place
 
 # Enable debug logging
 create-csr /path/to/servers -v
+
+# Keep temporary private key files after processing
+create-csr /path/to/servers --no-cleanup
 ```
 
 The tool will:
@@ -104,6 +107,9 @@ The tool will:
    - Wait for you to press Enter.
    - Generate the CSR in `servers/<name>/request.csr`.
    - Securely erase and remove the temporary private key.
+
+Use `--no-cleanup` to keep all temporary private key files after processing.
+Servers with `only_key: true` always keep their key files and do not generate a CSR.
 
 Named key files prevent bulk generation from overwriting a previous server's key
 before you have a chance to copy it. The temporary key is also removed if you

@@ -298,9 +298,9 @@ def test_run_only_key(tmp_path: Path, caplog) -> None:
     srv = root / "srv"
     srv.mkdir(parents=True)
     (srv / "meta.yaml").write_text(
-        "name: srv\nalgorithm: rsa 2048\nONLY_KEY: true\n", encoding="utf-8"
+        "name: srv\nalgorithm: rsa 2048\nonly_key: true\n", encoding="utf-8"
     )
-    # No server.cnf is required when ONLY_KEY is true.
+    # No server.cnf is required when only_key is true.
 
     keys_dir = tmp_path / "keys"
     code = run(
@@ -322,7 +322,7 @@ def test_run_only_key_and_regular_together(tmp_path: Path) -> None:
     key_only = root / "keyonly"
     key_only.mkdir(parents=True)
     (key_only / "meta.yaml").write_text(
-        "name: keyonly\nalgorithm: rsa 2048\nONLY_KEY: true\n", encoding="utf-8"
+        "name: keyonly\nalgorithm: rsa 2048\nonly_key: true\n", encoding="utf-8"
     )
 
     regular = root / "regular"
@@ -346,6 +346,35 @@ def test_run_only_key_and_regular_together(tmp_path: Path) -> None:
     assert (keys_dir / "keyonly.key").exists()
     assert (regular / "request.csr").exists()
     assert not (keys_dir / "regular.key").exists()
+
+
+def test_parse_args_no_cleanup() -> None:
+    args = parse_args(["/some/path", "--no-cleanup"])
+    assert args.no_cleanup is True
+
+
+def test_run_no_cleanup_keeps_regular_key_files(tmp_path: Path, caplog) -> None:
+    root = tmp_path / "servers"
+    srv = root / "srv"
+    srv.mkdir(parents=True)
+    (srv / "meta.yaml").write_text("name: srv\nalgorithm: rsa 2048\n", encoding="utf-8")
+    (srv / "server.cnf").write_text(
+        "[ req ]\nprompt = no\ndistinguished_name = req_dn\n\n[ req_dn ]\nCN = srv\n",
+        encoding="utf-8",
+    )
+
+    keys_dir = tmp_path / "keys"
+    code = run(
+        root,
+        keys_dir,
+        input_fn=make_input_sequence(["0", ""]),
+        no_cleanup=True,
+    )
+
+    assert code == 0
+    assert (srv / "request.csr").exists()
+    assert (keys_dir / "srv.key").exists()
+    assert any("Skipping temporary key cleanup" in rec.message for rec in caplog.records)
 
 
 def test_main_verbose_calls_setup_logging_with_debug() -> None:

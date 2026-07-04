@@ -106,7 +106,7 @@ def test_load_servers_only_key_no_cnf(tmp_path: Path, caplog) -> None:
     root = tmp_path / "servers"
     s = root / "srv"
     s.mkdir(parents=True)
-    (s / "meta.yaml").write_text("name: srv\nONLY_KEY: true\n", encoding="utf-8")
+    (s / "meta.yaml").write_text("name: srv\nonly_key: true\n", encoding="utf-8")
 
     servers = load_servers(root)
     assert len(servers) == 1
