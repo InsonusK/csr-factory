@@ -1,0 +1,5 @@
+name: api1
+tags:
+  - api
+  - prod
+algorithm: ECC P-256

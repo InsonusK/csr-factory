@@ -1,0 +1,5 @@
+name: web1
+tags:
+  - web
+  - prod
+algorithm: rsa 2048
