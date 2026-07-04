@@ -7,3 +7,12 @@ aism-re-init:
 
 aism-sync:
 	bash scripts/ai-skills/sync.bash
+
+install:
+	pip install -e ".[dev]"
+
+test:
+	pytest
+
+lint:
+	python -m compileall src tests

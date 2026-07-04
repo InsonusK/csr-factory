@@ -1,0 +1,6 @@
+include README.md
+include Makefile
+include MANIFEST.in
+recursive-include example *
+recursive-include tests *
+recursive-include .github *
