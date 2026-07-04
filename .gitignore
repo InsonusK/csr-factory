@@ -1,2 +1,11 @@
 /.ai-skill-manager
 /.ai-worktree/
+/.venv/
+/.pytest_cache/
+/__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+/build/
+/dist/
+/.coverage
