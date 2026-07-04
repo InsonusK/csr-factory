@@ -105,8 +105,6 @@ def run(
         logger.error("No servers selected.")
         return 1
 
-    protected_keys = {tmp_keys_dir / f"{server.name}.key" for server in selected if server.only_key}
-
     try:
         for server in selected:
             key_path = tmp_keys_dir / f"{server.name}.key"
@@ -116,7 +114,7 @@ def run(
         if no_cleanup:
             logger.info("Skipping temporary key cleanup (--no-cleanup).")
         else:
-            _cleanup_key_files(tmp_keys_dir, preserve=protected_keys)
+            _cleanup_key_files(tmp_keys_dir)
 
     logger.info("Done.")
     return 0
@@ -159,10 +157,11 @@ def _process_server(
             return False
 
         logger.info("Private key saved to: %s", key_path)
-        logger.info(
-            "Private key created for %s (only_key). The key file is kept.",
-            server.name,
+        wait_for_enter(
+            "Copy the private key to your password manager and press Enter to continue...",
+            input_fn=input_fn,
         )
+        logger.info("Private key created for %s (only_key).", server.name)
         return True
 
     if server.csr_path.exists():
@@ -209,25 +208,14 @@ def _process_server(
     return True
 
 
-def _cleanup_key_files(
-    tmp_keys_dir: Path,
-    preserve: set[Path] | None = None,
-) -> None:
-    """Securely erase and remove any remaining ``*.key`` files.
-
-    Files listed in ``preserve`` are left untouched so that keys generated for
-    servers marked with ``only_key`` are not erased.
-    """
-    preserve = preserve or set()
+def _cleanup_key_files(tmp_keys_dir: Path) -> None:
+    """Securely erase and remove any remaining ``*.key`` files."""
     if not tmp_keys_dir.exists():
         return
     remaining = list(tmp_keys_dir.glob("*.key"))
     if remaining:
         logger.debug("Cleaning up %d remaining temporary key file(s)", len(remaining))
     for key_file in remaining:
-        if key_file in preserve:
-            logger.debug("Preserving key file: %s", key_file)
-            continue
         secure_unlink(key_file)
 
 

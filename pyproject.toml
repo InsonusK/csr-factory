@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "csr-factory"
-version = "0.1.0"
+version = "0.2.0"
 description = "Generate private keys and CSRs for servers from a directory of server configs."
 readme = "README.md"
 license = {text = "MIT"}

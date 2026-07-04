@@ -306,12 +306,11 @@ def test_run_only_key(tmp_path: Path, caplog) -> None:
     code = run(
         root,
         keys_dir,
-        input_fn=make_input_sequence(["0"]),
+        input_fn=make_input_sequence(["0", ""]),
     )
 
     assert code == 0
-    assert (keys_dir / "srv.key").exists()
-    assert "PRIVATE KEY" in (keys_dir / "srv.key").read_text(encoding="utf-8")
+    assert not (keys_dir / "srv.key").exists()
     assert not (srv / "request.csr").exists()
     assert any("Private key created" in rec.message for rec in caplog.records)
 
@@ -339,12 +338,12 @@ def test_run_only_key_and_regular_together(tmp_path: Path) -> None:
     code = run(
         root,
         keys_dir,
-        input_fn=make_input_sequence(["0", ""]),
+        input_fn=make_input_sequence(["0", "", ""]),
     )
 
     assert code == 0
-    assert (keys_dir / "keyonly.key").exists()
     assert (regular / "request.csr").exists()
+    assert not (keys_dir / "keyonly.key").exists()
     assert not (keys_dir / "regular.key").exists()
 
 

@@ -41,8 +41,9 @@ only_key: false       # optional: generate only a private key, no CSR
 ```
 
 `only_key` is optional and defaults to `false`. When set to `true`, the directory does
-not need a `server.cnf` and the tool only creates the private key (no CSR is generated,
-no prompt to copy the key, and the key file is kept in `<tmp-key-dir>/<name>.key`).
+not need a `server.cnf` and the tool only creates the private key. No CSR is generated,
+but the tool still pauses so you can copy the key; the temporary key file is securely
+erased when the script finishes (unless `--no-cleanup` is used).
 
 ECC keys are generated with `openssl genpkey -algorithm EC` and written in PKCS#8
 format (`-----BEGIN PRIVATE KEY-----`).
