@@ -76,8 +76,8 @@ create-csr
 # Or point to a different directory
 create-csr /path/to/servers
 
-# Customize the temporary private key path
-create-csr /path/to/servers --tmp-key /secure/place/private.key
+# Customize the directory for temporary private key files
+create-csr /path/to/servers --tmp-key-dir /secure/place
 
 # Enable debug logging
 create-csr /path/to/servers -v
@@ -89,12 +89,14 @@ The tool will:
 2. Show a menu: all servers, by tag, or by server name.
 3. For each selected server:
    - Generate a private key with the configured algorithm.
-   - Save it to the temporary key path so you can copy it to a password manager.
+   - Save it to `<tmp-key-dir>/<name>.key` so you can copy it to a password manager.
    - Wait for you to press Enter.
    - Generate the CSR in `servers/<name>/request.csr`.
-   - Remove the temporary private key.
+   - Securely erase and remove the temporary private key.
 
-The temporary key is also removed if you interrupt the script (`Ctrl+C`).
+Named key files prevent bulk generation from overwriting a previous server's key
+before you have a chance to copy it. The temporary key is also removed if you
+interrupt the script (`Ctrl+C`).
 
 ---
 
