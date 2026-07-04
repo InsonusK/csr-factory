@@ -53,9 +53,11 @@ CN = api1.example.com
 
 ### 2. Install the library
 
-From the repository:
+Create a virtual environment and install the package:
 
 ```bash
+python3 -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install git+https://github.com/InsonusK/csr-factory.git
 ```
 
@@ -64,6 +66,8 @@ Or in editable mode while developing:
 ```bash
 git clone https://github.com/InsonusK/csr-factory.git
 cd csr-factory
+python3 -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -e ".[dev]"
 ```
 
@@ -71,8 +75,7 @@ pip install -e ".[dev]"
 
 ```bash
 # Uses ./servers by default
-create-csr
-
+so
 # Or point to a different directory
 create-csr /path/to/servers
 
@@ -102,19 +105,52 @@ interrupt the script (`Ctrl+C`).
 
 ## Add to another project
 
-Add the dependency to your project:
-
-```bash
-pip install git+https://github.com/InsonusK/csr-factory.git
-```
-
-Or in `pyproject.toml`:
+### Using `pyproject.toml`
 
 ```toml
 [project]
 dependencies = [
     "csr-factory @ git+https://github.com/InsonusK/csr-factory.git",
 ]
+```
+
+Pin to a specific version when possible:
+
+```toml
+[project]
+dependencies = [
+    "csr-factory @ git+https://github.com/InsonusK/csr-factory.git@v0.1.0",
+]
+```
+
+### Using `requirements.txt`
+
+Create a `requirements.txt` in your project:
+
+```txt
+csr-factory @ git+https://github.com/InsonusK/csr-factory.git
+```
+
+Pin to a specific version when possible:
+
+```txt
+csr-factory @ git+https://github.com/InsonusK/csr-factory.git@v0.1.0
+```
+
+Then create a virtual environment and install the dependencies:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+```
+
+### Direct install
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
+pip install git+https://github.com/InsonusK/csr-factory.git
 ```
 
 After installation the `create-csr` command is available in the environment.
