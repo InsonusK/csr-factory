@@ -268,13 +268,13 @@ def secure_unlink(path: Path, *, passes: int = 1) -> None:
                 fh.flush()
                 os.fsync(fh.fileno())
     except OSError as exc:
-        logger.warning("Failed to overwrite file contents for %s: %s", path, exc)
+        logger.error("Failed to overwrite file contents for %s: %s", path, exc)
 
     try:
         path.unlink()
         logger.debug("Securely removed: %s", path)
     except OSError as exc:
-        logger.warning("Failed to remove file %s: %s", path, exc)
+        logger.error("Failed to remove file %s: %s", path, exc)
 
 
 class TmpKeyManager:

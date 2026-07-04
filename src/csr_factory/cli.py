@@ -164,7 +164,10 @@ def _cleanup_key_files(tmp_keys_dir: Path) -> None:
     """Securely erase and remove any remaining ``*.key`` files."""
     if not tmp_keys_dir.exists():
         return
-    for key_file in tmp_keys_dir.glob("*.key"):
+    remaining = list(tmp_keys_dir.glob("*.key"))
+    if remaining:
+        logger.debug("Cleaning up %d remaining temporary key file(s)", len(remaining))
+    for key_file in remaining:
         secure_unlink(key_file)
 
 
@@ -179,7 +182,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         return run(servers_dir, tmp_keys_dir)
     except KeyboardInterrupt:
-        logger.critical("Interrupted by user.")
+        logger.info("Interrupted by user.")
         return 130
     except Exception as exc:
         logger.critical("Unexpected error: %s", exc, exc_info=True)

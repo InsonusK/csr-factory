@@ -228,7 +228,7 @@ def test_main_keyboard_interrupt(tmp_path: Path, caplog) -> None:
         code = main([str(tmp_path / "servers")])
     assert code == 130
     assert any("Interrupted by user" in rec.message for rec in caplog.records)
-    assert any(rec.levelname == "CRITICAL" for rec in caplog.records)
+    assert any(rec.levelname == "INFO" for rec in caplog.records)
 
 
 def test_main_unexpected_error(tmp_path: Path, caplog) -> None:
