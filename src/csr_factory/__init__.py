@@ -8,6 +8,7 @@ from csr_factory.core import (
     generate_csr,
     generate_key,
     load_servers,
+    secure_unlink,
     select_servers,
     validate_algorithm,
 )
@@ -21,6 +22,7 @@ __all__ = [
     "generate_csr",
     "generate_key",
     "load_servers",
+    "secure_unlink",
     "select_servers",
     "setup_logging",
     "validate_algorithm",

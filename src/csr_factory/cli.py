@@ -18,11 +18,11 @@ from csr_factory.console import (
 from csr_factory.core import (
     AlgorithmError,
     ServerMeta,
-    TmpKeyManager,
     collect_tags,
     generate_csr,
     generate_key,
     load_servers,
+    secure_unlink,
     select_servers,
 )
 from csr_factory.logging_config import setup_logging
@@ -43,9 +43,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Directory containing per-server subdirectories (default: %(default)s).",
     )
     parser.add_argument(
-        "--tmp-key",
-        default="pki/tmp/private.key",
-        help="Path for the temporary private key (default: %(default)s).",
+        "--tmp-key-dir",
+        default="pki/tmp",
+        help="Directory for temporary private key files (default: %(default)s).",
     )
     parser.add_argument(
         "-v",
@@ -58,14 +58,15 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 def run(
     servers_dir: Path,
-    tmp_key_path: Path,
+    tmp_keys_dir: Path,
     input_fn: Callable[[str], str] = input,
 ) -> int:
     """Run the interactive CSR generation workflow.
 
     Args:
         servers_dir: Root directory containing per-server subdirectories.
-        tmp_key_path: Where to write the temporary private key.
+        tmp_keys_dir: Directory where per-server temporary private keys are
+            written as ``{name}.key``.
         input_fn: Callable used to read user input (for testing).
 
     Returns:
@@ -97,10 +98,13 @@ def run(
         logger.error("No servers selected.")
         return 1
 
-    with TmpKeyManager(tmp_key_path):
+    try:
         for server in selected:
-            if not _process_server(server, tmp_key_path, input_fn):
+            key_path = tmp_keys_dir / f"{server.name}.key"
+            if not _process_server(server, key_path, input_fn):
                 return 1
+    finally:
+        _cleanup_key_files(tmp_keys_dir)
 
     logger.info("Done.")
     return 0
@@ -108,7 +112,7 @@ def run(
 
 def _process_server(
     server: ServerMeta,
-    tmp_key_path: Path,
+    key_path: Path,
     input_fn: Callable[[str], str],
 ) -> bool:
     """Process a single server: generate key, wait, generate CSR.
@@ -129,7 +133,7 @@ def _process_server(
             return True
 
     try:
-        generate_key(server.algorithm, tmp_key_path)
+        generate_key(server.algorithm, key_path)
     except AlgorithmError as exc:
         logger.error("%s", exc)
         return False
@@ -137,23 +141,31 @@ def _process_server(
         logger.error("Failed to generate private key for %s: %s", server.name, exc)
         return False
 
-    print(f"Private key saved to: {tmp_key_path}")
+    print(f"Private key saved to: {key_path}")
     wait_for_enter(
         "Copy it to your password manager and press Enter to create the CSR...",
         input_fn=input_fn,
     )
 
     try:
-        generate_csr(tmp_key_path, server.config_path, server.csr_path)
+        generate_csr(key_path, server.config_path, server.csr_path)
     except (subprocess.CalledProcessError, OSError) as exc:
         logger.error("Failed to generate CSR for %s: %s", server.name, exc)
         return False
 
-    # Ensure the temporary key is removed immediately after the CSR is created,
-    # even though the context manager will also clean it up on exit.
-    tmp_key_path.unlink(missing_ok=True)
+    # Securely erase the private key immediately after the CSR is created so
+    # that the key material cannot be recovered from the storage medium.
+    secure_unlink(key_path)
     logger.info("CSR created: %s", server.csr_path)
     return True
+
+
+def _cleanup_key_files(tmp_keys_dir: Path) -> None:
+    """Securely erase and remove any remaining ``*.key`` files."""
+    if not tmp_keys_dir.exists():
+        return
+    for key_file in tmp_keys_dir.glob("*.key"):
+        secure_unlink(key_file)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -162,10 +174,10 @@ def main(argv: list[str] | None = None) -> int:
     setup_logging(logging.DEBUG if args.verbose else logging.INFO)
 
     servers_dir = Path(args.servers_dir)
-    tmp_key_path = Path(args.tmp_key)
+    tmp_keys_dir = Path(args.tmp_key_dir)
 
     try:
-        return run(servers_dir, tmp_key_path)
+        return run(servers_dir, tmp_keys_dir)
     except KeyboardInterrupt:
         logger.critical("Interrupted by user.")
         return 130

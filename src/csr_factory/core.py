@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -237,10 +238,50 @@ def generate_csr(key_path: Path, config_path: Path, csr_path: Path) -> None:
     logger.debug("CSR saved: %s", csr_path)
 
 
+def secure_unlink(path: Path, *, passes: int = 1) -> None:
+    """Securely erase and remove a file.
+
+    The file content is overwritten with zeros before unlinking so that the
+    original data cannot be recovered from the storage medium by casual means.
+    If the file does not exist this function is a no-op.
+
+    Args:
+        path: Path to the file to erase.
+        passes: Number of overwrite passes (default: 1).
+    """
+    if not path.exists():
+        logger.debug("Secure unlink: file does not exist: %s", path)
+        return
+
+    logger.debug("Securely erasing: %s", path)
+    try:
+        file_size = path.stat().st_size
+        if file_size > 0:
+            with open(path, "rb+") as fh:
+                for _ in range(max(1, passes)):
+                    fh.seek(0)
+                    fh.write(b"\x00" * file_size)
+                    fh.flush()
+                    os.fsync(fh.fileno())
+                fh.seek(0)
+                fh.truncate(0)
+                fh.flush()
+                os.fsync(fh.fileno())
+    except OSError as exc:
+        logger.warning("Failed to overwrite file contents for %s: %s", path, exc)
+
+    try:
+        path.unlink()
+        logger.debug("Securely removed: %s", path)
+    except OSError as exc:
+        logger.warning("Failed to remove file %s: %s", path, exc)
+
+
 class TmpKeyManager:
     """Context manager that owns a temporary private key file.
 
-    The file is removed when the context exits, even if an exception is raised.
+    The file is securely erased and removed when the context exits, even if an
+    exception is raised.
     """
 
     def __init__(self, tmp_key_path: Path) -> None:
@@ -254,7 +295,5 @@ class TmpKeyManager:
         self.remove()
 
     def remove(self) -> None:
-        """Remove the temporary key file if it exists."""
-        if self.tmp_key_path.exists():
-            logger.debug("Removing temporary key: %s", self.tmp_key_path)
-            self.tmp_key_path.unlink()
+        """Securely erase and remove the temporary key file if it exists."""
+        secure_unlink(self.tmp_key_path)
