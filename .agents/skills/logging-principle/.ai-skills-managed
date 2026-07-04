@@ -1,0 +1,23 @@
+{
+  "hash": "5bc12b814db1e256b6c3066df98b463b7dedf39a115e077db4f6671007f463b7",
+  "validators": [
+    {
+      "name": "NameValidationRule",
+      "version": "1.0.0"
+    },
+    {
+      "name": "ConflictValidationRule",
+      "version": "1.0.0"
+    },
+    {
+      "name": "LinkValidationRule",
+      "version": "1.1.0"
+    }
+  ],
+  "adapters": [
+    {
+      "name": "LinkAdapter",
+      "version": "1.2.0"
+    }
+  ]
+}

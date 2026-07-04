@@ -175,9 +175,7 @@ for server in servers:
 Create a virtual environment and install in editable mode:
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -e ".[dev]"
+make repo-init
 ```
 
 Run the tests:
