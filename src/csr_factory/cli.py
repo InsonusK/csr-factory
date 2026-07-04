@@ -133,7 +133,8 @@ def _process_server(
     except AlgorithmError as exc:
         logger.error("%s", exc)
         return False
-    except (subprocess.CalledProcessError, OSError):
+    except (subprocess.CalledProcessError, OSError) as exc:
+        logger.error("Failed to generate private key for %s: %s", server.name, exc)
         return False
 
     print(f"Private key saved to: {tmp_key_path}")
@@ -144,7 +145,8 @@ def _process_server(
 
     try:
         generate_csr(tmp_key_path, server.config_path, server.csr_path)
-    except (subprocess.CalledProcessError, OSError):
+    except (subprocess.CalledProcessError, OSError) as exc:
+        logger.error("Failed to generate CSR for %s: %s", server.name, exc)
         return False
 
     # Ensure the temporary key is removed immediately after the CSR is created,
