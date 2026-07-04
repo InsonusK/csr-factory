@@ -1,0 +1,14 @@
+sources:
+  - path: https://github.com/InsonusK/ai-skills.git
+    type: github
+    tree: master
+    subpath:
+      - skills/common-workflow/work-in-git-tree.skill.md
+      - skills/common-workflow/test/workflow-unittest-testplan.skill
+      - skills/common-workflow/test/code-coverage.skill.md
+
+settings:
+  target: .agents/skills
+  remove_orphans: true
+  on_conflict: error
+  dry_run: false
