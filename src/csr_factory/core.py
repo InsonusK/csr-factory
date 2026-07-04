@@ -16,8 +16,26 @@ logger = logging.getLogger(__name__)
 ALGORITHMS = {
     "rsa 2048": ["openssl", "genrsa", "-out", "{key}", "2048"],
     "rsa 4096": ["openssl", "genrsa", "-out", "{key}", "4096"],
-    "ECC P-256": ["openssl", "ecparam", "-genkey", "-name", "prime256v1", "-out", "{key}"],
-    "ECC P-384": ["openssl", "ecparam", "-genkey", "-name", "secp384r1", "-out", "{key}"],
+    "ECC P-256": [
+        "openssl",
+        "genpkey",
+        "-algorithm",
+        "EC",
+        "-pkeyopt",
+        "ec_paramgen_curve:prime256v1",
+        "-out",
+        "{key}",
+    ],
+    "ECC P-384": [
+        "openssl",
+        "genpkey",
+        "-algorithm",
+        "EC",
+        "-pkeyopt",
+        "ec_paramgen_curve:secp384r1",
+        "-out",
+        "{key}",
+    ],
 }
 
 
@@ -33,6 +51,7 @@ class ServerMeta:
     tags: tuple[str, ...]
     algorithm: str
     server_dir: Path
+    only_key: bool = False
 
     @property
     def config_path(self) -> Path:
@@ -63,12 +82,25 @@ def _read_meta(path: Path) -> dict:
         return yaml.safe_load(f) or {}
 
 
+def _to_bool(value: object) -> bool:
+    """Normalize a YAML value to a boolean."""
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in ("true", "yes", "1"):
+            return True
+        if normalized in ("false", "no", "0", ""):
+            return False
+    return bool(value)
+
+
 def load_servers(servers_dir: Path) -> list[ServerMeta]:
     """Load server metadata from subdirectories of ``servers_dir``.
 
-    Only subdirectories containing both ``meta.yaml`` and ``server.cnf`` are
-    considered. Warnings are logged for directories that are missing required
-    files or have malformed metadata.
+    Subdirectories must contain ``meta.yaml``. ``server.cnf`` is required
+    unless ``ONLY_KEY`` is set to ``true``. Warnings are logged for directories
+    that are missing required files or have malformed metadata.
 
     Args:
         servers_dir: Root directory containing per-server subdirectories.
@@ -93,9 +125,6 @@ def load_servers(servers_dir: Path) -> list[ServerMeta]:
         if not meta_path.is_file():
             logger.warning("%s: missing meta.yaml", entry.name)
             continue
-        if not cnf_path.is_file():
-            logger.warning("%s: missing server.cnf", entry.name)
-            continue
 
         try:
             meta = _read_meta(meta_path)
@@ -103,15 +132,22 @@ def load_servers(servers_dir: Path) -> list[ServerMeta]:
             logger.warning("%s: failed to read meta.yaml: %s", entry.name, exc)
             continue
 
+        only_key = _to_bool(meta.get("ONLY_KEY", False))
+
+        if not only_key and not cnf_path.is_file():
+            logger.warning("%s: missing server.cnf", entry.name)
+            continue
+
         name = meta.get("name") or entry.name
         tags = tuple(sorted(str(t) for t in (meta.get("tags") or [])))
         algorithm = meta.get("algorithm", "rsa 2048")
 
         logger.debug(
-            "Loaded server: name=%s tags=%s algorithm=%s dir=%s",
+            "Loaded server: name=%s tags=%s algorithm=%s only_key=%s dir=%s",
             name,
             tags,
             algorithm,
+            only_key,
             entry,
         )
         servers.append(
@@ -120,6 +156,7 @@ def load_servers(servers_dir: Path) -> list[ServerMeta]:
                 tags=tags,
                 algorithm=algorithm,
                 server_dir=entry,
+                only_key=only_key,
             )
         )
 

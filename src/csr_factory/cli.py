@@ -79,13 +79,13 @@ def run(
         return 1
 
     if not servers:
-        logger.error("No servers found in %s with meta.yaml and server.cnf.", servers_dir)
+        logger.error("No servers found in %s with valid meta.yaml.", servers_dir)
         return 1
 
     tags = collect_tags(servers)
     menu_text, tag_menu, server_menu = build_menu(servers, tags)
 
-    print(menu_text)
+    logger.info("%s", menu_text)
     choice = prompt_choice("Your choice: ", input_fn=input_fn)
 
     try:
@@ -98,13 +98,15 @@ def run(
         logger.error("No servers selected.")
         return 1
 
+    protected_keys = {tmp_keys_dir / f"{server.name}.key" for server in selected if server.only_key}
+
     try:
         for server in selected:
             key_path = tmp_keys_dir / f"{server.name}.key"
             if not _process_server(server, key_path, input_fn):
                 return 1
     finally:
-        _cleanup_key_files(tmp_keys_dir)
+        _cleanup_key_files(tmp_keys_dir, preserve=protected_keys)
 
     logger.info("Done.")
     return 0
@@ -115,13 +117,39 @@ def _process_server(
     key_path: Path,
     input_fn: Callable[[str], str],
 ) -> bool:
-    """Process a single server: generate key, wait, generate CSR.
+    """Process a single server: generate key, optionally generate CSR.
 
     Returns:
         ``True`` if processing should continue, ``False`` on fatal error.
     """
-    print("")
+    logger.info("")
     logger.info("Server: %s (algorithm: %s)", server.name, server.algorithm)
+
+    if server.only_key:
+        if key_path.exists():
+            overwrite = prompt_yes_no(
+                f"Private key already exists: {key_path}. Overwrite? (yes/no): ",
+                input_fn=input_fn,
+            )
+            if not overwrite:
+                logger.info("Skipping %s.", server.name)
+                return True
+
+        try:
+            generate_key(server.algorithm, key_path)
+        except AlgorithmError as exc:
+            logger.error("%s", exc)
+            return False
+        except (subprocess.CalledProcessError, OSError) as exc:
+            logger.error("Failed to generate private key for %s: %s", server.name, exc)
+            return False
+
+        logger.info("Private key saved to: %s", key_path)
+        logger.info(
+            "Private key created for %s (ONLY_KEY). The key file is kept.",
+            server.name,
+        )
+        return True
 
     if server.csr_path.exists():
         overwrite = prompt_yes_no(
@@ -141,7 +169,7 @@ def _process_server(
         logger.error("Failed to generate private key for %s: %s", server.name, exc)
         return False
 
-    print(f"Private key saved to: {key_path}")
+    logger.info("Private key saved to: %s", key_path)
     wait_for_enter(
         "Copy it to your password manager and press Enter to create the CSR...",
         input_fn=input_fn,
@@ -160,14 +188,25 @@ def _process_server(
     return True
 
 
-def _cleanup_key_files(tmp_keys_dir: Path) -> None:
-    """Securely erase and remove any remaining ``*.key`` files."""
+def _cleanup_key_files(
+    tmp_keys_dir: Path,
+    preserve: set[Path] | None = None,
+) -> None:
+    """Securely erase and remove any remaining ``*.key`` files.
+
+    Files listed in ``preserve`` are left untouched so that keys generated for
+    servers marked with ``ONLY_KEY`` are not erased.
+    """
+    preserve = preserve or set()
     if not tmp_keys_dir.exists():
         return
     remaining = list(tmp_keys_dir.glob("*.key"))
     if remaining:
         logger.debug("Cleaning up %d remaining temporary key file(s)", len(remaining))
     for key_file in remaining:
+        if key_file in preserve:
+            logger.debug("Preserving key file: %s", key_file)
+            continue
         secure_unlink(key_file)
 
 

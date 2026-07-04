@@ -293,6 +293,61 @@ def test_run_cleans_up_leftover_key_files(tmp_path: Path) -> None:
     assert not (keys_dir / "srv.key").exists()
 
 
+def test_run_only_key(tmp_path: Path, caplog) -> None:
+    root = tmp_path / "servers"
+    srv = root / "srv"
+    srv.mkdir(parents=True)
+    (srv / "meta.yaml").write_text(
+        "name: srv\nalgorithm: rsa 2048\nONLY_KEY: true\n", encoding="utf-8"
+    )
+    # No server.cnf is required when ONLY_KEY is true.
+
+    keys_dir = tmp_path / "keys"
+    code = run(
+        root,
+        keys_dir,
+        input_fn=make_input_sequence(["0"]),
+    )
+
+    assert code == 0
+    assert (keys_dir / "srv.key").exists()
+    assert "PRIVATE KEY" in (keys_dir / "srv.key").read_text(encoding="utf-8")
+    assert not (srv / "request.csr").exists()
+    assert any("Private key created" in rec.message for rec in caplog.records)
+
+
+def test_run_only_key_and_regular_together(tmp_path: Path) -> None:
+    root = tmp_path / "servers"
+
+    key_only = root / "keyonly"
+    key_only.mkdir(parents=True)
+    (key_only / "meta.yaml").write_text(
+        "name: keyonly\nalgorithm: rsa 2048\nONLY_KEY: true\n", encoding="utf-8"
+    )
+
+    regular = root / "regular"
+    regular.mkdir(parents=True)
+    (regular / "meta.yaml").write_text(
+        "name: regular\nalgorithm: rsa 2048\n", encoding="utf-8"
+    )
+    (regular / "server.cnf").write_text(
+        "[ req ]\nprompt = no\ndistinguished_name = req_dn\n\n[ req_dn ]\nCN = regular\n",
+        encoding="utf-8",
+    )
+
+    keys_dir = tmp_path / "keys"
+    code = run(
+        root,
+        keys_dir,
+        input_fn=make_input_sequence(["0", ""]),
+    )
+
+    assert code == 0
+    assert (keys_dir / "keyonly.key").exists()
+    assert (regular / "request.csr").exists()
+    assert not (keys_dir / "regular.key").exists()
+
+
 def test_main_verbose_calls_setup_logging_with_debug() -> None:
     root = Path(__file__).parent.parent / "example" / "servers"
     with patch("csr_factory.cli.setup_logging") as mock_setup:

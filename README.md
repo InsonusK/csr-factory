@@ -15,7 +15,7 @@ This repository is both a reusable Python library and a command-line tool called
 Each subdirectory represents one server and must contain:
 
 - `meta.yaml` — server metadata
-- `server.cnf` — OpenSSL config used to generate the CSR
+- `server.cnf` — OpenSSL config used to generate the CSR (not required when `ONLY_KEY: true`)
 
 Example:
 
@@ -37,7 +37,15 @@ tags:
   - api
   - prod
 algorithm: ECC P-256  # rsa 2048 | rsa 4096 | ECC P-256 | ECC P-384
+ONLY_KEY: false       # optional: generate only a private key, no CSR
 ```
+
+`ONLY_KEY` is optional and defaults to `false`. When set to `true`, the directory does
+not need a `server.cnf` and the tool only creates the private key. The key file is kept
+in `<tmp-key-dir>/<name>.key` instead of being erased after CSR generation.
+
+ECC keys are generated with `openssl genpkey -algorithm EC` and written in PKCS#8
+format (`-----BEGIN PRIVATE KEY-----`).
 
 `server.cnf` is a standard OpenSSL request config, for example:
 

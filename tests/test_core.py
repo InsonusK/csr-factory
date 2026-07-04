@@ -102,6 +102,19 @@ def test_load_servers_missing_cnf(tmp_path: Path, caplog) -> None:
     assert any("missing server.cnf" in rec.message for rec in caplog.records)
 
 
+def test_load_servers_only_key_no_cnf(tmp_path: Path, caplog) -> None:
+    root = tmp_path / "servers"
+    s = root / "srv"
+    s.mkdir(parents=True)
+    (s / "meta.yaml").write_text("name: srv\nONLY_KEY: true\n", encoding="utf-8")
+
+    servers = load_servers(root)
+    assert len(servers) == 1
+    assert servers[0].name == "srv"
+    assert servers[0].only_key is True
+    assert not (s / "server.cnf").exists()
+
+
 def test_load_servers_defaults(tmp_path: Path) -> None:
     root = tmp_path / "servers"
     s = root / "srv"
@@ -187,6 +200,15 @@ def test_generate_key_real_openssl(tmp_path: Path, algorithm: str, caplog) -> No
     assert key_path.stat().st_mode & 0o777 == 0o600
     assert "PRIVATE KEY" in key_path.read_text(encoding="utf-8")
     assert any("Generating private key" in rec.message for rec in caplog.records)
+
+
+@pytest.mark.parametrize("algorithm", ["ECC P-256", "ECC P-384"])
+def test_generate_key_ecc_is_pkcs8(tmp_path: Path, algorithm: str) -> None:
+    key_path = tmp_path / "key.pem"
+    generate_key(algorithm, key_path)
+    text = key_path.read_text(encoding="utf-8")
+    assert "-----BEGIN PRIVATE KEY-----" in text
+    assert "-----BEGIN EC PRIVATE KEY-----" not in text
 
 
 def test_generate_key_invalid_algorithm(tmp_path: Path) -> None:
