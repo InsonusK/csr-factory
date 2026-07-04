@@ -275,25 +275,3 @@ def secure_unlink(path: Path, *, passes: int = 1) -> None:
         logger.debug("Securely removed: %s", path)
     except OSError as exc:
         logger.error("Failed to remove file %s: %s", path, exc)
-
-
-class TmpKeyManager:
-    """Context manager that owns a temporary private key file.
-
-    The file is securely erased and removed when the context exits, even if an
-    exception is raised.
-    """
-
-    def __init__(self, tmp_key_path: Path) -> None:
-        self.tmp_key_path = tmp_key_path
-
-    def __enter__(self) -> Path:
-        self.tmp_key_path.parent.mkdir(parents=True, exist_ok=True)
-        return self.tmp_key_path
-
-    def __exit__(self, exc_type, exc, tb) -> None:  # type: ignore[no-untyped-def]
-        self.remove()
-
-    def remove(self) -> None:
-        """Securely erase and remove the temporary key file if it exists."""
-        secure_unlink(self.tmp_key_path)

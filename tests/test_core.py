@@ -11,7 +11,6 @@ from csr_factory.core import (
     ALGORITHMS,
     AlgorithmError,
     ServerMeta,
-    TmpKeyManager,
     collect_tags,
     generate_csr,
     generate_key,
@@ -241,27 +240,4 @@ def test_secure_unlink_missing_file_is_noop(tmp_path: Path) -> None:
     assert not missing.exists()
 
 
-def test_tmp_key_manager_removes_file(tmp_path: Path, caplog) -> None:
-    caplog.set_level("DEBUG")
-    key = tmp_path / "private.key"
-    key.write_text("secret", encoding="utf-8")
-    with TmpKeyManager(key):
-        pass
-    assert not key.exists()
-    assert any("Securely removed" in rec.message for rec in caplog.records)
 
-
-def test_tmp_key_manager_removes_on_exception(tmp_path: Path) -> None:
-    key = tmp_path / "private.key"
-    key.write_text("secret", encoding="utf-8")
-    with pytest.raises(RuntimeError):
-        with TmpKeyManager(key):
-            raise RuntimeError("boom")
-    assert not key.exists()
-
-
-def test_tmp_key_manager_remove_idempotent(tmp_path: Path) -> None:
-    key = tmp_path / "private.key"
-    manager = TmpKeyManager(key)
-    manager.remove()
-    assert not key.exists()
