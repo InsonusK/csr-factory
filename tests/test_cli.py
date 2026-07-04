@@ -26,7 +26,7 @@ def make_input_sequence(answers: list[str]) -> Callable[[str], str]:
 def test_parse_args_default() -> None:
     args = parse_args([])
     assert args.servers_dir == "servers"
-    assert args.tmp_key_dir == "pki/tmp"
+    assert args.tmp_key_dir == "tmp"
     assert args.verbose is False
 
 
